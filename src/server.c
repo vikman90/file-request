@@ -6,17 +6,19 @@
     "Syntax: server [ OPTIONS ] FILE\n" \
     "Options:\n" \
     "   -h          Print this help.\n" \
-    "   -t  <sec>   Delivery timeout.\n"
+    "   -t  <sec>   Delivery timeout.\n" \
+    "   -w  <sec>   Warn if a delivery lasted more than <sec>.\n"
 
 static char * file;
 static int timeout;
+static int warn_delay;
 
 void parse_options(int argc, char ** argv) {
     int opt;
     long value;
     char * end;
 
-    while ((opt = getopt(argc, argv, "ht:")) != -1) {
+    while ((opt = getopt(argc, argv, "ht:w:")) != -1) {
         switch (opt) {
         case 'h':
             printf("%s\n", HELP_MESSAGE);
@@ -29,6 +31,17 @@ void parse_options(int argc, char ** argv) {
                 fprintf(stderr, "WARN: Ignoring invalid timeout option value.\n");
             } else {
                 timeout = value;
+            }
+
+            break;
+
+        case 'w':
+            value = strtol(optarg, &end, 10);
+
+            if (value < 0 || value > INT_MAX || *end) {
+                fprintf(stderr, "WARN: Ignoring invalid warn-on-delay option value.\n");
+            } else {
+                warn_delay = value;
             }
 
             break;
@@ -68,17 +81,22 @@ void send_file(FILE * file, int sock) {
 
     while ((read_b = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         struct timespec tp0, tp1;
-        clock_gettime(CLOCK_MONOTONIC, &tp0);
+
+        if (warn_delay) {
+            clock_gettime(CLOCK_MONOTONIC, &tp0);
+        }
 
         if (send_msg(sock, MSG_CHUNK, buffer, read_b) == -1) {
             return;
         }
 
-        clock_gettime(CLOCK_MONOTONIC, &tp1);
-        double lapse = time_diff(tp0, tp1);
+        if (warn_delay) {
+            clock_gettime(CLOCK_MONOTONIC, &tp1);
+            double lapse = time_diff(tp0, tp1);
 
-        if (lapse > 1) {
-            fprintf(stderr, "WARN: send() lasted %.03f seconds.\n", lapse);
+            if (lapse > warn_delay) {
+                fprintf(stderr, "WARN: send() lasted %.03f seconds.\n", lapse);
+            }
         }
     }
 

@@ -66,31 +66,45 @@ void parse_options(int argc, char ** argv) {
 
 void recv_file(int sock) {
     char buffer[4096];
-    ssize_t recv_b;
-    ssize_t total_b;
+    long total_b = 0;
+    message_t type;
+    long data_len;
     struct timespec tp0, tp1;
 
     if (verbose) {
         clock_gettime(CLOCK_MONOTONIC, &tp0);
     }
 
-    for (total_b = 0; (recv_b = recv(sock, buffer, sizeof(buffer), 0)) > 0; total_b += recv_b) {
-        size_t write_b = fwrite(buffer, 1, recv_b, stdout);
-        if (write_b != (size_t)recv_b) {
+    while ((data_len = recv_msg(sock, &type, buffer, sizeof(buffer))) > 0) {
+        if (type != MSG_CHUNK) {
+            die("Invalid message type: expecting chunk.");
+        }
+
+        size_t write_b = fwrite(buffer, 1, data_len, stdout);
+
+        if (write_b != (size_t)data_len) {
             die_errno("fwrite");
+        }
+
+        total_b += data_len;
+
+        if (delay) {
+            sleep_ms(delay);
         }
     }
 
-    if (recv_b == -1) {
-        die_errno("recv");
-    }
+    if (data_len == 0) {
+        if (type != MSG_END) {
+            die("Invalid message type: expecting end.");
+        }
 
-    if (verbose) {
-        clock_gettime(CLOCK_MONOTONIC, &tp1);
-        double lapse = time_diff(tp0, tp1);
-        fprintf(stderr, "Length: %zd bytes.\n", total_b);
-        fprintf(stderr, "Time: %.03f seconds.\n", lapse);
-        fprintf(stderr, "Throughput: %.03f Mbps.\n", total_b / lapse / 131072);
+        if (verbose) {
+            clock_gettime(CLOCK_MONOTONIC, &tp1);
+            double lapse = time_diff(tp0, tp1);
+            fprintf(stderr, "Length: %zd bytes.\n", total_b);
+            fprintf(stderr, "Time: %.03f seconds.\n", lapse);
+            fprintf(stderr, "Throughput: %.03f Mbps.\n", total_b / lapse / 131072);
+        }
     }
 }
 

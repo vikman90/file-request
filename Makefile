@@ -12,10 +12,10 @@ HEADERS := $(wildcard src/*.h)
 
 all: bin $(TARGET)
 
-bin/client: src/client.o src/network.o src/shared.o
+bin/client: src/client.o src/msgpack.o src/network.o src/shared.o
 	$(CC) $(LFLAGS) -o $@ $^
 
-bin/server: src/network.o src/server.o src/shared.o
+bin/server: src/msgpack.o src/network.o src/server.o src/shared.o
 	$(CC) $(LFLAGS) -o $@ $^
 
 $(OBJECTS): $(HEADERS)

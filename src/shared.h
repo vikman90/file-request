@@ -26,6 +26,7 @@
 
 void die(const char * s) __attribute__ ((noreturn));
 void die_errno(const char * s) __attribute__ ((noreturn));
+void * mem_alloc(size_t size);
 
 void sleep_ms(int ms);
 
@@ -34,6 +35,16 @@ int connect_socket(const char * hostname, unsigned short port);
 void set_timeout(int sock, int seconds);
 void set_nonblock(int sock);
 
-typedef enum { CHUNK, END } message_t;
+typedef struct {
+    uint32_t type;
+    uint32_t size;
+} header_t;
+
+typedef enum { MSG_CHUNK, MSG_END } message_t;
+
+long msg_pack(message_t type, const char * arg, long arg_len, char * payload, long payload_len);
+long msg_unpack(const char * payload, long payload_len, message_t * type, char * arg, long * arg_len);
+int send_msg(int sock, message_t type, const char * arg, long arg_len);
+long recv_msg(int sock, message_t * type, char * arg, long arg_len);
 
 #endif

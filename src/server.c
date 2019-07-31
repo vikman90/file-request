@@ -26,43 +26,22 @@ void send_file(FILE * file, int sock) {
     printf("Sending file to client...\n");
 
     while ((read_b = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        ssize_t send_b;
+        struct timespec tp0, tp1;
+        clock_gettime(CLOCK_MONOTONIC, &tp0);
 
-        for (size_t send_acc = 0; send_acc < read_b; send_acc += send_b) {
-            struct timespec tp0, tp1;
+        if (send_msg(sock, MSG_CHUNK, buffer, read_b) == -1) {
+            return;
+        }
 
-            clock_gettime(CLOCK_MONOTONIC, &tp0);
-            send_b = send(sock, buffer + send_acc, read_b - send_acc, 0);
-            clock_gettime(CLOCK_MONOTONIC, &tp1);
+        clock_gettime(CLOCK_MONOTONIC, &tp1);
+        double lapse = time_diff(tp0, tp1);
 
-            double lapse = time_diff(tp0, tp1);
-
-            if (lapse > 1) {
-                fprintf(stderr, "WARN: send() lasted %.03f seconds.\n", lapse);
-            }
-
-            switch (send_b) {
-            case -1:
-                switch (errno) {
-                case ECONNRESET:
-                    printf("Client closed the connection.\n");
-                    return;
-
-                default:
-                    die_errno("send");
-                }
-
-            case 0:
-                fprintf(stderr, "WARN: No data sent. Retrying.\n");
-                break;
-
-            default:
-                if ((size_t)send_b < read_b) {
-                    fprintf(stderr, "WARN: Data partially delivered: %zd bytes\n", send_b);
-                }
-            }
+        if (lapse > 1) {
+            fprintf(stderr, "WARN: send() lasted %.03f seconds.\n", lapse);
         }
     }
+
+    send_msg(sock, MSG_END, NULL, 0);
 
     printf("Delivery completed.\n");
 }

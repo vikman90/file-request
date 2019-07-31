@@ -2,7 +2,7 @@
 
 #include "shared.h"
 
-static char * file;
+static char * hostname;
 static int delay;
 static unsigned short port = 1516;
 static bool verbose;
@@ -28,9 +28,10 @@ void parse_options(int argc, char ** argv) {
             if (value < 0 || value > INT_MAX || *end) {
                 fprintf(stderr, "WARN: Ignoring invalid delay option value.\n");
             } else {
+
                 delay = value;
             }
-            
+
             break;
 
         case 'h':
@@ -45,7 +46,7 @@ void parse_options(int argc, char ** argv) {
             } else {
                 port = value;
             }
-            
+
             break;
 
         case 'v':
@@ -61,7 +62,7 @@ void parse_options(int argc, char ** argv) {
         exit(EXIT_FAILURE);
     }
 
-    file = argv[optind];
+    hostname = argv[optind];
 }
 
 void recv_file(int sock) {
@@ -111,7 +112,7 @@ void recv_file(int sock) {
 int main(int argc, char ** argv) {
     parse_options(argc, argv);
 
-    int sock = connect_socket(file, 1516);
+    int sock = connect_socket(hostname, 1516);
     recv_file(sock);
 
     close(sock);

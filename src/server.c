@@ -3,7 +3,48 @@
 #include "shared.h"
 
 #define HELP_MESSAGE \
-    "Syntax: server FILE\n"
+    "Syntax: server [ OPTIONS ] FILE\n" \
+    "Options:\n" \
+    "   -h          Print this help.\n" \
+    "   -t  <sec>   Delivery timeout.\n"
+
+static char * file;
+static int timeout;
+
+void parse_options(int argc, char ** argv) {
+    int opt;
+    long value;
+    char * end;
+
+    while ((opt = getopt(argc, argv, "ht:")) != -1) {
+        switch (opt) {
+        case 'h':
+            printf("%s\n", HELP_MESSAGE);
+            exit(EXIT_SUCCESS);
+
+        case 't':
+            value = strtol(optarg, &end, 10);
+
+            if (value < 0 || value > INT_MAX || *end) {
+                fprintf(stderr, "WARN: Ignoring invalid timeout option value.\n");
+            } else {
+                timeout = value;
+            }
+
+            break;
+
+        case '?':
+            break;
+        }
+    }
+
+    if (optind == argc) {
+        fprintf(stderr, "%s\n", HELP_MESSAGE);
+        exit(EXIT_FAILURE);
+    }
+
+    file = argv[optind];
+}
 
 FILE * open_file(const char * path) {
     FILE * file = fopen(path, "r");
@@ -47,12 +88,9 @@ void send_file(FILE * file, int sock) {
 }
 
 int main(int argc, char ** argv) {
-    if (argc < 2) {
-        fprintf(stderr, "%s\n", HELP_MESSAGE);
-        return EXIT_FAILURE;
-    }
+    parse_options(argc, argv);
 
-    FILE * file = open_file(argv[1]);
+    FILE * fp = open_file(file);
     int sock = bind_socket(1516);
 
     for (;;) {
@@ -62,12 +100,16 @@ int main(int argc, char ** argv) {
             die_errno("accept");
         }
 
-        send_file(file, peer);
+        if (timeout) {
+            set_timeout(peer, timeout);
+        }
+
+        send_file(fp, peer);
         close(peer);
     }
 
     close(sock);
-    fclose(file);
+    fclose(fp);
 
     return EXIT_SUCCESS;
 }
